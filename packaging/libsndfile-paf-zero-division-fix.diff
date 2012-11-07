@@ -1,0 +1,16 @@
+=== modified file 'src/paf.c'
+---
+ src/paf.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/src/paf.c
++++ b/src/paf.c
+@@ -202,7 +202,7 @@
+ 		psf->endian = SF_ENDIAN_BIG ;
+ 		} ;
+ 
+-	if (paf_fmt.channels > SF_MAX_CHANNELS)
++	if (paf_fmt.channels > SF_MAX_CHANNELS || paf_fmt.channels <= 0)
+ 		return SFE_PAF_BAD_CHANNELS ;
+ 
+ 	psf->datalength = psf->filelength - psf->dataoffset ;

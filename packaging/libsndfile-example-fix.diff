@@ -1,0 +1,38 @@
+--- examples/sndfile-to-text.c-dist	2009-02-09 12:36:49.000000000 +0100
++++ examples/sndfile-to-text.c	2009-02-09 12:37:05.000000000 +0100
+@@ -101,6 +101,7 @@ main (int argc, char * argv [])
+ 		return 1 ;
+ 		} ;
+ 
++	memset(&sfinfo, 0, sizeof(sfinfo));
+ 	if ((infile = sf_open (infilename, SFM_READ, &sfinfo)) == NULL)
+ 	{	printf ("Not able to open input file %s.\n", infilename) ;
+ 		puts (sf_strerror (NULL)) ;
+--- examples/sfprocess.c-dist	2009-02-07 05:07:34.000000000 +0100
++++ examples/sfprocess.c	2009-02-09 12:36:23.000000000 +0100
+@@ -31,6 +31,7 @@
+ */
+ 
+ #include	<stdio.h>
++#include	<string.h>
+ 
+ /* Include this header file to use functions from libsndfile. */
+ #include	<sndfile.h>
+@@ -83,6 +84,7 @@ main (void)
+ 	**		sfinfo.format   = SF_FORMAT_RAW | SF_FORMAT_PCM_16 ;
+ 	**		sfinfo.channels = 2 ;
+     */
++    memset(&sfinfo, 0, sizeof(sfinfo));
+     if (! (infile = sf_open (infilename, SFM_READ, &sfinfo)))
+     {   /* Open failed so print an error message. */
+         printf ("Not able to open input file %s.\n", infilename) ;
+--- examples/generate.c-dist	2009-02-07 05:07:44.000000000 +0100
++++ examples/generate.c	2009-02-09 12:36:23.000000000 +0100
+@@ -98,6 +98,7 @@ encode_file (const char *infilename, con
+ 	k = 16 - strlen (outfilename) ;
+ 	PUT_DOTS (k) ;
+ 
++	memset(&sfinfo, 0, sizeof(sfinfo));
+ 	if (! (infile = sf_open (infilename, SFM_READ, &sfinfo)))
+ 	{	printf ("Error : could not open file : %s\n", infilename) ;
+ 		puts (sf_strerror (NULL)) ;
