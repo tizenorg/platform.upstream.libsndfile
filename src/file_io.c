@@ -564,6 +564,9 @@ psf_open_fd (PSF_FILE * pfile)
 				return - SFE_BAD_OPEN_MODE ;
 				break ;
 		} ;
+#ifdef O_CLOEXEC
+        oflag |= O_CLOEXEC;
+#endif
 
 	if (mode == 0)
 		fd = open (pfile->path.c, oflag) ;
