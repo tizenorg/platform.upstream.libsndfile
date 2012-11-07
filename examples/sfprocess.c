@@ -31,6 +31,7 @@
 */
 
 #include	<stdio.h>
+#include	<string.h>
 
 /* Include this header file to use functions from libsndfile. */
 #include	<sndfile.h>
@@ -83,6 +84,7 @@ main (void)
 	**		sfinfo.format   = SF_FORMAT_RAW | SF_FORMAT_PCM_16 ;
 	**		sfinfo.channels = 2 ;
     */
+    memset(&sfinfo, 0, sizeof(sfinfo));
     if (! (infile = sf_open (infilename, SFM_READ, &sfinfo)))
     {   /* Open failed so print an error message. */
         printf ("Not able to open input file %s.\n", infilename) ;
