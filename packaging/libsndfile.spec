@@ -2,8 +2,8 @@ Name:           libsndfile
 Version:        1.0.25
 Release:        0
 License:        LGPL-2.1+
-Summary:        Development/Libraries/C and C++
-Group:          System/Libraries
+Summary:        C library for reading and writing sound files
+Group:          Multimedia/Audio
 BuildRequires:  pkgconfig(alsa)
 BuildRequires:  gcc-c++
 BuildRequires:  libtool
@@ -24,7 +24,7 @@ currently read and write 8, 16, 24, and 32-bit PCM files as well as
 
 %package devel
 Summary:        Development package for the libsndfile library
-Group:          Development/Libraries/C and C++
+Group:          Development/Libraries
 Requires:       %{name} = %{version}
 Requires:       glibc-devel
 Requires:       libstdc++-devel
@@ -66,14 +66,13 @@ rm -rf %{buildroot}%{_datadir}/doc/libsndfile1-dev
 
 %postun  -p /sbin/ldconfig
 
-
 %files 
 %defattr(-, root, root)
+%license COPYING
 %{_libdir}/libsndfile.so.1*
 
 %files devel
 %defattr(-, root, root)
-%doc COPYING
 %{_libdir}/libsndfile.so
 %{_includedir}/sndfile.h
 %{_includedir}/sndfile.hh
