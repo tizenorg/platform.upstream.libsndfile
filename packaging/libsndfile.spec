@@ -14,6 +14,7 @@ BuildRequires:  sqlite-devel
 Url:            http://www.mega-nerd.com/libsndfile/
 Source:         libsndfile-%{version}.tar.gz
 Source2:        baselibs.conf
+Source1001: 	libsndfile.manifest
 
 %description
 Libsndfile is a C library for reading and writing sound files, such as
@@ -35,6 +36,7 @@ libsndfile library.
 
 %prep
 %setup -q
+cp %{SOURCE1001} .
 
 %build
 %define warn_flags -W -Wall -Wstrict-prototypes -Wpointer-arith -Wno-unused-parameter
@@ -67,11 +69,13 @@ rm -rf %{buildroot}%{_datadir}/doc/libsndfile1-dev
 %postun  -p /sbin/ldconfig
 
 %files 
+%manifest %{name}.manifest
 %defattr(-, root, root)
 %license COPYING
 %{_libdir}/libsndfile.so.1*
 
 %files devel
+%manifest %{name}.manifest
 %defattr(-, root, root)
 %{_libdir}/libsndfile.so
 %{_includedir}/sndfile.h
