@@ -1,0 +1,8 @@
+Change-Id: I3cd0e33c3144bea326a8cd6f17b44ed5ab037a17
+Code-Review+2: Ryan Ware <ware@linux.intel.com>
+Verified+1: Ryan Ware <ware@linux.intel.com>
+Submitted-by: Ryan Ware <ware@linux.intel.com>
+Submitted-at: Mon, 08 Jul 2013 09:37:41 -0700
+Reviewed-on: https://review.tizen.org/gerrit/5177
+Project: platform/upstream/libsndfile
+Branch: refs/heads/tizen
