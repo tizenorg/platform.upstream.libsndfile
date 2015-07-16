@@ -4,13 +4,11 @@ Release:        0
 License:        LGPL-2.1+
 Summary:        C library for reading and writing sound files
 Group:          Multimedia/Audio
-BuildRequires:  pkgconfig(alsa)
 BuildRequires:  gcc-c++
 BuildRequires:  libtool
-BuildRequires:  libvorbis-devel
 BuildRequires:  pkg-config
-BuildRequires:  speex-devel
-BuildRequires:  sqlite-devel
+BuildRequires:  pkgconfig(ogg)
+BuildRequires:  pkgconfig(vorbis)
 Url:            http://www.mega-nerd.com/libsndfile/
 Source:         libsndfile-%{version}.tar.gz
 Source2:        baselibs.conf
@@ -43,11 +41,9 @@ cp %{SOURCE1001} .
 autoreconf --force --install
 CFLAGS="%{optflags} %{warn_flags}"
 export CFLAGS
-%configure --disable-silent-rules \
-	--disable-static \
-    --enable-sqlite \
-	--with-pic \
-    --enable-experimental
+%configure --disable-static \
+    --disable-dependency-tracking \
+    --disable-sqlite --disable-alsa
 make %{?_smp_mflags}
 
 %check
@@ -56,6 +52,9 @@ make check
 popd
 
 %install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}/usr/share/license
+cp COPYING %{buildroot}/usr/share/license/%{name}
 %make_install
 # remove programs; built in another spec file
 rm -rf %{buildroot}%{_bindir}
@@ -73,6 +72,7 @@ rm -rf %{buildroot}%{_datadir}/doc/libsndfile1-dev
 %defattr(-, root, root)
 %license COPYING
 %{_libdir}/libsndfile.so.1*
+/usr/share/license/%{name}
 
 %files devel
 %manifest %{name}.manifest
