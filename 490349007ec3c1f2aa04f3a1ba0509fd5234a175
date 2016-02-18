@@ -1,6 +1,14 @@
 Code-Review+2: Sangchul Lee <sc11.lee@samsung.com>
 Verified+1: Sangchul Lee <sc11.lee@samsung.com>
 Submitted-by: Seungbae Shin <seungbae.shin@samsung.com>
+Submitted-at: Thu, 16 Jul 2015 03:23:43 -0800
+Reviewed-on: https://review.tizen.org/gerrit/44026
+Project: platform/upstream/libsndfile
+Branch: refs/heads/tizen
+
+Code-Review+2: Sangchul Lee <sc11.lee@samsung.com>
+Verified+1: Sangchul Lee <sc11.lee@samsung.com>
+Submitted-by: Seungbae Shin <seungbae.shin@samsung.com>
 Submitted-at: Thu, 16 Jul 2015 04:23:43 -0700
 Reviewed-on: https://review.tizen.org/gerrit/44026
 Project: platform/upstream/libsndfile
