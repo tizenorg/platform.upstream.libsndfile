@@ -29,7 +29,7 @@
 #include	"sndfile.h"
 #include	"common.h"
 
-#if HAVE_EXTERNAL_LIBS
+#if 0  /* HAVE_EXTERNAL_LIBS : Disable for TIZEN */
 
 #include	<FLAC/stream_decoder.h>
 #include	<FLAC/stream_encoder.h>
