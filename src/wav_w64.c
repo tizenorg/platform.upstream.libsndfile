@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 1999-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 1999-2014 Erik de Castro Lopo <erikd@mega-nerd.com>
 ** Copyright (C) 2004-2005 David Viens <davidv@plogue.com>
 **
 ** This program is free software; you can redistribute it and/or modify
@@ -197,7 +197,7 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 
 		case WAVE_FORMAT_ALAW :
 		case WAVE_FORMAT_MULAW :
-				if (wav_fmt->min.bytespersec / wav_fmt->min.blockalign != wav_fmt->min.samplerate)
+				if (wav_fmt->min.bytespersec != wav_fmt->min.samplerate * wav_fmt->min.blockalign)
 					psf_log_printf (psf, "  Bytes/sec     : %d (should be %d)\n", wav_fmt->min.bytespersec, wav_fmt->min.samplerate * wav_fmt->min.blockalign) ;
 				else
 					psf_log_printf (psf, "  Bytes/sec     : %d\n", wav_fmt->min.bytespersec) ;
@@ -215,8 +215,14 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 				if (wav_fmt->min.channels < 1 || wav_fmt->min.channels > 2)
 					return SFE_WAV_ADPCM_CHANNELS ;
 
-				bytesread +=
-				psf_binheader_readf (psf, "22", &(wav_fmt->ima.extrabytes), &(wav_fmt->ima.samplesperblock)) ;
+				bytesread += psf_binheader_readf (psf, "22", &(wav_fmt->ima.extrabytes), &(wav_fmt->ima.samplesperblock)) ;
+				psf_log_printf (psf, "  Extra Bytes   : %d\n", wav_fmt->ima.extrabytes) ;
+				if (wav_fmt->ima.samplesperblock < 1)
+				{	psf_log_printf (psf, "  Samples/Block : %d (should be > 0)\n", wav_fmt->ima.samplesperblock) ;
+					return SFE_WAV_ADPCM_SAMPLES ;
+					}
+				else
+					psf_log_printf (psf, "  Samples/Block : %d\n", wav_fmt->ima.samplesperblock) ;
 
 				bytespersec = (wav_fmt->ima.samplerate * wav_fmt->ima.blockalign) / wav_fmt->ima.samplesperblock ;
 				if (wav_fmt->ima.bytespersec != (unsigned) bytespersec)
@@ -224,9 +230,6 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 				else
 					psf_log_printf (psf, "  Bytes/sec     : %d\n", wav_fmt->ima.bytespersec) ;
 
-				psf->bytewidth = 2 ;
-				psf_log_printf (psf, "  Extra Bytes   : %d\n", wav_fmt->ima.extrabytes) ;
-				psf_log_printf (psf, "  Samples/Block : %d\n", wav_fmt->ima.samplesperblock) ;
 				break ;
 
 		case WAVE_FORMAT_MS_ADPCM :
@@ -235,9 +238,16 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 				if (wav_fmt->msadpcm.channels < 1 || wav_fmt->msadpcm.channels > 2)
 					return SFE_WAV_ADPCM_CHANNELS ;
 
-				bytesread +=
-				psf_binheader_readf (psf, "222", &(wav_fmt->msadpcm.extrabytes),
-						&(wav_fmt->msadpcm.samplesperblock), &(wav_fmt->msadpcm.numcoeffs)) ;
+				bytesread += psf_binheader_readf (psf, "222", &(wav_fmt->msadpcm.extrabytes),
+								&(wav_fmt->msadpcm.samplesperblock), &(wav_fmt->msadpcm.numcoeffs)) ;
+
+				psf_log_printf (psf, "  Extra Bytes   : %d\n", wav_fmt->msadpcm.extrabytes) ;
+				if (wav_fmt->ima.samplesperblock < 1)
+				{	psf_log_printf (psf, "  Samples/Block : %d (should be > 0)\n", wav_fmt->ima.samplesperblock) ;
+					return SFE_WAV_ADPCM_SAMPLES ;
+					}
+				else
+					psf_log_printf (psf, "  Samples/Block : %d\n", wav_fmt->ima.samplesperblock) ;
 
 				bytespersec = (wav_fmt->min.samplerate * wav_fmt->min.blockalign) / wav_fmt->msadpcm.samplesperblock ;
 				if (wav_fmt->min.bytespersec == (unsigned) bytespersec)
@@ -247,9 +257,6 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 				else
 					psf_log_printf (psf, "  Bytes/sec     : %d (should be %d)\n", wav_fmt->min.bytespersec, bytespersec) ;
 
-				psf->bytewidth = 2 ;
-				psf_log_printf (psf, "  Extra Bytes   : %d\n", wav_fmt->msadpcm.extrabytes) ;
-				psf_log_printf (psf, "  Samples/Block : %d\n", wav_fmt->msadpcm.samplesperblock) ;
 				if (wav_fmt->msadpcm.numcoeffs > ARRAY_LEN (wav_fmt->msadpcm.coeffs))
 				{	psf_log_printf (psf, "  No. of Coeffs : %d (should be <= %d)\n", wav_fmt->msadpcm.numcoeffs, ARRAY_LEN (wav_fmt->msadpcm.coeffs)) ;
 					wav_fmt->msadpcm.numcoeffs = ARRAY_LEN (wav_fmt->msadpcm.coeffs) ;
@@ -259,10 +266,12 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 
 				psf_log_printf (psf, "    Index   Coeffs1   Coeffs2\n") ;
 				for (k = 0 ; k < wav_fmt->msadpcm.numcoeffs ; k++)
-				{	bytesread +=
-					psf_binheader_readf (psf, "22", &(wav_fmt->msadpcm.coeffs [k].coeff1), &(wav_fmt->msadpcm.coeffs [k].coeff2)) ;
-					snprintf (psf->u.cbuf, sizeof (psf->u.cbuf), "     %2d     %7d   %7d\n", k, wav_fmt->msadpcm.coeffs [k].coeff1, wav_fmt->msadpcm.coeffs [k].coeff2) ;
-					psf_log_printf (psf, psf->u.cbuf) ;
+				{	char buffer [128] ;
+
+					bytesread +=
+						psf_binheader_readf (psf, "22", &(wav_fmt->msadpcm.coeffs [k].coeff1), &(wav_fmt->msadpcm.coeffs [k].coeff2)) ;
+					snprintf (buffer, sizeof (buffer), "     %2d     %7d   %7d\n", k, wav_fmt->msadpcm.coeffs [k].coeff1, wav_fmt->msadpcm.coeffs [k].coeff2) ;
+					psf_log_printf (psf, buffer) ;
 					} ;
 				break ;
 
@@ -282,13 +291,12 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 				else
 					psf_log_printf (psf, "  Bytes/sec     : %d\n", wav_fmt->gsm610.bytespersec) ;
 
-				psf->bytewidth = 2 ;
 				psf_log_printf (psf, "  Extra Bytes   : %d\n", wav_fmt->gsm610.extrabytes) ;
 				psf_log_printf (psf, "  Samples/Block : %d\n", wav_fmt->gsm610.samplesperblock) ;
 				break ;
 
 		case WAVE_FORMAT_EXTENSIBLE :
-				if (wav_fmt->ext.bytespersec / wav_fmt->ext.blockalign != wav_fmt->ext.samplerate)
+				if (wav_fmt->ext.bytespersec != wav_fmt->ext.samplerate * wav_fmt->ext.blockalign)
 					psf_log_printf (psf, "  Bytes/sec     : %d (should be %d)\n", wav_fmt->ext.bytespersec, wav_fmt->ext.samplerate * wav_fmt->ext.blockalign) ;
 				else
 					psf_log_printf (psf, "  Bytes/sec     : %d\n", wav_fmt->ext.bytespersec) ;
@@ -302,7 +310,8 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 				if (wav_fmt->ext.channelmask == 0)
 					psf_log_printf (psf, "  Channel Mask  : 0x0 (should not be zero)\n") ;
 				else
-				{	unsigned bit ;
+				{	char buffer [512] ;
+					unsigned bit ;
 
 					wpriv->wavex_channelmask = wav_fmt->ext.channelmask ;
 
@@ -313,9 +322,9 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 						return SFE_MALLOC_FAILED ;
 
 					/* Terminate the buffer we're going to append_snprintf into. */
-					psf->u.cbuf [0] = 0 ;
+					buffer [0] = 0 ;
 
-					for (bit = k = 0 ; bit < ARRAY_LEN (channel_mask_bits) ; bit++)
+					for (bit = k = 0 ; bit < ARRAY_LEN (channel_mask_bits) && k < psf->sf.channels ; bit++)
 					{
 						if (wav_fmt->ext.channelmask & (1 << bit))
 						{	if (k > psf->sf.channels)
@@ -324,21 +333,23 @@ wav_w64_read_fmt_chunk (SF_PRIVATE *psf, int fmtsize)
 								} ;
 
 							psf->channel_map [k++] = channel_mask_bits [bit].id ;
-							append_snprintf (psf->u.cbuf, sizeof (psf->u.cbuf), "%s, ", channel_mask_bits [bit].name) ;
+							append_snprintf (buffer, sizeof (buffer), "%s, ", channel_mask_bits [bit].name) ;
 							} ;
 						} ;
 
 					/* Remove trailing ", ". */
-					bit = strlen (psf->u.cbuf) ;
-					psf->u.cbuf [--bit] = 0 ;
-					psf->u.cbuf [--bit] = 0 ;
+					bit = strlen (buffer) ;
+					if (bit >= 2)
+					{	buffer [--bit] = 0 ;
+						buffer [--bit] = 0 ;
+						} ;
 
 					if (k != psf->sf.channels)
 					{	psf_log_printf (psf, "  Channel Mask  : 0x%X\n", wav_fmt->ext.channelmask) ;
 						psf_log_printf (psf, "*** Less channel map bits than there are channels.\n") ;
 						}
 					else
-						psf_log_printf (psf, "  Channel Mask  : 0x%X (%s)\n", wav_fmt->ext.channelmask, psf->u.cbuf) ;
+						psf_log_printf (psf, "  Channel Mask  : 0x%X (%s)\n", wav_fmt->ext.channelmask, buffer) ;
 					} ;
 
 				bytesread += psf_binheader_readf (psf, "422", &(wav_fmt->ext.esf.esf_field1), &(wav_fmt->ext.esf.esf_field2), &(wav_fmt->ext.esf.esf_field3)) ;
@@ -465,7 +476,8 @@ wavex_gen_channel_mask (const int *chan_map, int channels)
 
 void
 wav_w64_analyze (SF_PRIVATE *psf)
-{	AUDIO_DETECT ad ;
+{	unsigned char buffer [4096] ;
+	AUDIO_DETECT ad ;
 	int format = 0 ;
 
 	if (psf->is_pipe)
@@ -482,8 +494,8 @@ wav_w64_analyze (SF_PRIVATE *psf)
 
 	psf_fseek (psf, 3 * 4 * 50, SEEK_SET) ;
 
-	while (psf_fread (psf->u.ucbuf, 1, 4096, psf) == 4096)
-	{	format = audio_detect (psf, &ad, psf->u.ucbuf, 4096) ;
+	while (psf_fread (buffer, 1, sizeof (buffer), psf) == sizeof (buffer))
+	{	format = audio_detect (psf, &ad, buffer, sizeof (buffer)) ;
 		if (format != 0)
 			break ;
 		} ;

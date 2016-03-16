@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2004-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 2004-2014 Erik de Castro Lopo <erikd@mega-nerd.com>
 ** Copyright (C) 2004 Tobias Gehrig <tgehrig@ira.uka.de>
 **
 ** This program is free software ; you can redistribute it and/or modify
@@ -39,6 +39,8 @@
 ** Private static functions.
 */
 
+#define	FLAC_DEFAULT_COMPRESSION_LEVEL	5
+
 #define ENC_BUFFER_SIZE 8192
 
 typedef enum
@@ -67,6 +69,8 @@ typedef struct
 
 	const FLAC__Frame *frame ;
 	FLAC__bool bufferbackup ;
+
+	unsigned compression ;
 } FLAC_PRIVATE ;
 
 typedef struct
@@ -75,6 +79,7 @@ typedef struct
 } FLAC_TAG ;
 
 static sf_count_t	flac_seek (SF_PRIVATE *psf, int mode, sf_count_t offset) ;
+static int			flac_byterate (SF_PRIVATE *psf) ;
 static int			flac_close (SF_PRIVATE *psf) ;
 
 static int			flac_enc_init (SF_PRIVATE *psf) ;
@@ -147,8 +152,8 @@ i2flac8_array (const int *src, FLAC__int32 *dest, int count)
 static void
 i2flac16_array (const int *src, FLAC__int32 *dest, int count)
 {
-  while (--count >= 0)
-    dest [count] = src [count] >> 16 ;
+	while (--count >= 0)
+		dest [count] = src [count] >> 16 ;
 } /* i2flac16_array */
 
 static void
@@ -219,7 +224,7 @@ flac_buffer_copy (SF_PRIVATE *psf)
 							break ;
 
 						for (j = 0 ; j < frame->header.channels ; j++)
-							retpcm [offset + j] = (buffer [j][pflac->bufferpos]) << shift ;
+							retpcm [offset + j] = ((uint16_t) buffer [j][pflac->bufferpos]) << shift ;
 
 						pflac->remain -= frame->header.channels ;
 						pflac->bufferpos++ ;
@@ -238,7 +243,7 @@ flac_buffer_copy (SF_PRIVATE *psf)
 						break ;
 
 					for (j = 0 ; j < frame->header.channels ; j++)
-						retpcm [offset + j] = buffer [j][pflac->bufferpos] << shift ;
+						retpcm [offset + j] = ((uint32_t) buffer [j][pflac->bufferpos]) << shift ;
 					pflac->remain -= frame->header.channels ;
 					pflac->bufferpos++ ;
 					} ;
@@ -300,7 +305,7 @@ sf_flac_read_callback (const FLAC__StreamDecoder * UNUSED (decoder), FLAC__byte 
 	if (*bytes > 0 && psf->error == 0)
 		return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE ;
 
-    return FLAC__STREAM_DECODER_READ_STATUS_ABORT ;
+	return FLAC__STREAM_DECODER_READ_STATUS_ABORT ;
 } /* sf_flac_read_callback */
 
 static FLAC__StreamDecoderSeekStatus
@@ -342,7 +347,7 @@ sf_flac_eof_callback (const FLAC__StreamDecoder *UNUSED (decoder), void *client_
 	if (psf_ftell (psf) == psf->filelength)
 		return SF_TRUE ;
 
-    return SF_FALSE ;
+	return SF_FALSE ;
 } /* sf_flac_eof_callback */
 
 static FLAC__StreamDecoderWriteStatus
@@ -504,7 +509,7 @@ sf_flac_enc_seek_callback (const FLAC__StreamEncoder * UNUSED (encoder), FLAC__u
 	if (psf->error)
 		return FLAC__STREAM_ENCODER_SEEK_STATUS_ERROR ;
 
-    return FLAC__STREAM_ENCODER_SEEK_STATUS_OK ;
+	return FLAC__STREAM_ENCODER_SEEK_STATUS_OK ;
 } /* sf_flac_enc_seek_callback */
 
 static FLAC__StreamEncoderTellStatus
@@ -534,7 +539,7 @@ flac_write_strings (SF_PRIVATE *psf, FLAC_PRIVATE* pflac)
 	int	k, string_count = 0 ;
 
 	for (k = 0 ; k < SF_MAX_STRINGS ; k++)
-	{	if (psf->strings [k].type != 0)
+	{	if (psf->strings.data [k].type != 0)
 			string_count ++ ;
 		} ;
 
@@ -546,10 +551,10 @@ flac_write_strings (SF_PRIVATE *psf, FLAC_PRIVATE* pflac)
 		return ;
 		} ;
 
-	for (k = 0 ; k < SF_MAX_STRINGS && psf->strings [k].type != 0 ; k++)
+	for (k = 0 ; k < SF_MAX_STRINGS && psf->strings.data [k].type != 0 ; k++)
 	{	const char * key, * value ;
 
-		switch (psf->strings [k].type)
+		switch (psf->strings.data [k].type)
 		{	case SF_STR_SOFTWARE :
 				key = "software" ;
 				break ;
@@ -584,7 +589,7 @@ flac_write_strings (SF_PRIVATE *psf, FLAC_PRIVATE* pflac)
 				continue ;
 			} ;
 
-		value = psf->strings [k].str ;
+		value = psf->strings.storage + psf->strings.data [k].offset ;
 
 		FLAC__metadata_object_vorbiscomment_entry_from_name_value_pair (&entry, key, value) ;
 		FLAC__metadata_object_vorbiscomment_append_comment (pflac->metadata, entry, /* copy */ SF_FALSE) ;
@@ -629,6 +634,10 @@ flac_open	(SF_PRIVATE *psf)
 	FLAC_PRIVATE* pflac = calloc (1, sizeof (FLAC_PRIVATE)) ;
 	psf->codec_data = pflac ;
 
+	/* Set the default value here. Over-ridden later if necessary. */
+	pflac->compression = FLAC_DEFAULT_COMPRESSION_LEVEL ;
+
+
 	if (psf->file.mode == SFM_RDWR)
 		return SFE_BAD_MODE_RW ;
 
@@ -646,7 +655,7 @@ flac_open	(SF_PRIVATE *psf)
 		psf->endian = SF_ENDIAN_BIG ;
 		psf->sf.seekable = 0 ;
 
-		psf->str_flags = SF_STR_ALLOW_START ;
+		psf->strings.flags = SF_STR_ALLOW_START ;
 
 		if ((error = flac_enc_init (psf)))
 			return error ;
@@ -656,14 +665,12 @@ flac_open	(SF_PRIVATE *psf)
 
 	psf->datalength = psf->filelength ;
 	psf->dataoffset = 0 ;
-	psf->blockwidth = 0 ;
-	psf->bytewidth = 1 ;
 
 	psf->container_close = flac_close ;
 	psf->seek = flac_seek ;
-	psf->command = flac_command ;
+	psf->byterate = flac_byterate ;
 
-	psf->blockwidth = psf->bytewidth * psf->sf.channels ;
+	psf->command = flac_command ;
 
 	switch (subformat)
 	{	case SF_FORMAT_PCM_S8 :	/* 8-bit FLAC.  */
@@ -724,7 +731,7 @@ flac_enc_init (SF_PRIVATE *psf)
 	**     "FLAC supports linear sample rates from 1Hz - 655350Hz in 1Hz
 	**     increments."
 	*/
-	if ( psf->sf.samplerate < 1 || psf->sf.samplerate > 655350 )
+	if (psf->sf.samplerate < 1 || psf->sf.samplerate > 655350)
 	{	psf_log_printf (psf, "flac sample rate out of range.\n", psf->sf.samplerate) ;
 		return SFE_FLAC_BAD_SAMPLE_RATE ;
 		} ;
@@ -747,6 +754,8 @@ flac_enc_init (SF_PRIVATE *psf)
 			break ;
 		} ;
 
+	if (pflac->fse)
+		FLAC__stream_encoder_delete (pflac->fse) ;
 	if ((pflac->fse = FLAC__stream_encoder_new ()) == NULL)
 		return SFE_FLAC_NEW_DECODER ;
 
@@ -765,6 +774,11 @@ flac_enc_init (SF_PRIVATE *psf)
 		return SFE_FLAC_INIT_DECODER ;
 		} ;
 
+	if (! FLAC__stream_encoder_set_compression_level (pflac->fse, pflac->compression))
+	{	psf_log_printf (psf, "FLAC__stream_encoder_set_compression_level (%d) return false.\n", pflac->compression) ;
+		return SFE_FLAC_INIT_DECODER ;
+		} ;
+
 	return 0 ;
 } /* flac_enc_init */
 
@@ -773,6 +787,8 @@ flac_read_header (SF_PRIVATE *psf)
 {	FLAC_PRIVATE* pflac = (FLAC_PRIVATE*) psf->codec_data ;
 
 	psf_fseek (psf, 0, SEEK_SET) ;
+	if (pflac->fsd)
+		FLAC__stream_decoder_delete (pflac->fsd) ;
 	if ((pflac->fsd = FLAC__stream_decoder_new ()) == NULL)
 		return SFE_FLAC_NEW_DECODER ;
 
@@ -796,9 +812,37 @@ flac_read_header (SF_PRIVATE *psf)
 } /* flac_read_header */
 
 static int
-flac_command (SF_PRIVATE * UNUSED (psf), int UNUSED (command), void * UNUSED (data), int UNUSED (datasize))
-{
-	return 0 ;
+flac_command (SF_PRIVATE * psf, int command, void * data, int datasize)
+{	FLAC_PRIVATE* pflac = (FLAC_PRIVATE*) psf->codec_data ;
+	double quality ;
+
+	switch (command)
+	{	case SFC_SET_COMPRESSION_LEVEL :
+			if (data == NULL || datasize != sizeof (double))
+				return SF_FALSE ;
+
+			if (psf->have_written)
+				return SF_FALSE ;
+
+			/* FLAC compression level is in the range [0, 8] while libsndfile takes
+			** values in the range [0.0, 1.0]. Massage the libsndfile value here.
+			*/
+			quality = (*((double *) data)) * 8.0 ;
+			/* Clip range. */
+			pflac->compression = lrint (SF_MAX (0.0, SF_MIN (8.0, quality))) ;
+
+			psf_log_printf (psf, "%s : Setting SFC_SET_COMPRESSION_LEVEL to %u.\n", __func__, pflac->compression) ;
+
+			if (flac_enc_init (psf))
+				return SF_FALSE ;
+
+			return SF_TRUE ;
+
+		default :
+			return SF_FALSE ;
+		} ;
+
+	return SF_FALSE ;
 } /* flac_command */
 
 int
@@ -820,9 +864,6 @@ flac_init (SF_PRIVATE *psf)
 		psf->write_float	= flac_write_f2flac ;
 		psf->write_double	= flac_write_d2flac ;
 		} ;
-
-	psf->bytewidth = 1 ;
-	psf->blockwidth = psf->sf.channels ;
 
 	if (psf->filelength > psf->dataoffset)
 		psf->datalength = (psf->dataend) ? psf->dataend - psf->dataoffset : psf->filelength - psf->dataoffset ;
@@ -962,7 +1003,7 @@ flac_write_s2flac (SF_PRIVATE *psf, const short *ptr, sf_count_t len)
 	while (len > 0)
 	{	writecount = (len >= bufferlen) ? bufferlen : (int) len ;
 		convert (ptr + total, buffer, writecount) ;
-		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount/psf->sf.channels))
+		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount / psf->sf.channels))
 			thiswrite = writecount ;
 		else
 			break ;
@@ -1004,7 +1045,7 @@ flac_write_i2flac (SF_PRIVATE *psf, const int *ptr, sf_count_t len)
 	while (len > 0)
 	{	writecount = (len >= bufferlen) ? bufferlen : (int) len ;
 		convert (ptr + total, buffer, writecount) ;
-		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount/psf->sf.channels))
+		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount / psf->sf.channels))
 			thiswrite = writecount ;
 		else
 			break ;
@@ -1046,7 +1087,7 @@ flac_write_f2flac (SF_PRIVATE *psf, const float *ptr, sf_count_t len)
 	while (len > 0)
 	{	writecount = (len >= bufferlen) ? bufferlen : (int) len ;
 		convert (ptr + total, buffer, writecount, psf->norm_float) ;
-		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount/psf->sf.channels))
+		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount / psf->sf.channels))
 			thiswrite = writecount ;
 		else
 			break ;
@@ -1084,23 +1125,22 @@ f2flac8_clip_array (const float *src, FLAC__int32 *dest, int count, int normaliz
 
 static void
 f2flac16_clip_array (const float *src, FLAC__int32 *dest, int count, int normalize)
-{
-  float normfact, scaled_value ;
+{	float normfact, scaled_value ;
 
-  normfact = normalize ? (8.0 * 0x1000) : 1.0 ;
+	normfact = normalize ? (8.0 * 0x1000) : 1.0 ;
 
-  while (--count >= 0) {
-    scaled_value = src [count] * normfact ;
-    if (CPU_CLIPS_POSITIVE == 0 && scaled_value >= (1.0 * 0x7FFF)) {
-      dest [count] = 0x7FFF ;
-      continue ;
-    }
-    if (CPU_CLIPS_NEGATIVE == 0 && scaled_value <= (-8.0 * 0x1000)) {
-      dest [count] = 0x8000 ;
-      continue ;
-    }
-    dest [count] = lrintf (scaled_value) ;
-  }
+	while (--count >= 0)
+	{	scaled_value = src [count] * normfact ;
+		if (CPU_CLIPS_POSITIVE == 0 && scaled_value >= (1.0 * 0x7FFF))
+		{	dest [count] = 0x7FFF ;
+			continue ;
+			} ;
+		if (CPU_CLIPS_NEGATIVE == 0 && scaled_value <= (-8.0 * 0x1000))
+		{	dest [count] = 0x8000 ;
+			continue ;
+			} ;
+		dest [count] = lrintf (scaled_value) ;
+		} ;
 } /* f2flac16_clip_array */
 
 static void
@@ -1178,7 +1218,7 @@ flac_write_d2flac (SF_PRIVATE *psf, const double *ptr, sf_count_t len)
 	while (len > 0)
 	{	writecount = (len >= bufferlen) ? bufferlen : (int) len ;
 		convert (ptr + total, buffer, writecount, psf->norm_double) ;
-		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount/psf->sf.channels))
+		if (FLAC__stream_encoder_process_interleaved (pflac->fse, buffer, writecount / psf->sf.channels))
 			thiswrite = writecount ;
 		else
 			break ;
@@ -1297,12 +1337,19 @@ flac_seek (SF_PRIVATE *psf, int UNUSED (mode), sf_count_t offset)
 	pflac->frame = NULL ;
 
 	if (psf->file.mode == SFM_READ)
-	{	FLAC__uint64 position ;
-		if (FLAC__stream_decoder_seek_absolute (pflac->fsd, offset))
-		{	FLAC__stream_decoder_get_decode_position (pflac->fsd, &position) ;
+	{	if (FLAC__stream_decoder_seek_absolute (pflac->fsd, offset))
+			return offset ;
+
+		if (offset == psf->sf.frames)
+		{	/*
+			** If we've been asked to seek to the very end of the file, libFLAC
+			** will return an error. However, we know the length of the file so
+			** instead of returning an error, we can return the offset.
+			*/
 			return offset ;
 			} ;
 
+		psf->error = SFE_BAD_SEEK ;
 		return ((sf_count_t) -1) ;
 		} ;
 
@@ -1311,6 +1358,16 @@ flac_seek (SF_PRIVATE *psf, int UNUSED (mode), sf_count_t offset)
 
 	return ((sf_count_t) -1) ;
 } /* flac_seek */
+
+static int
+flac_byterate (SF_PRIVATE *psf)
+{
+	if (psf->file.mode == SFM_READ)
+		return (psf->datalength * psf->sf.samplerate) / psf->sf.frames ;
+
+	return -1 ;
+} /* flac_byterate */
+
 
 #else /* HAVE_EXTERNAL_LIBS */
 

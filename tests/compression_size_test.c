@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2007-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 2007-2015 Erik de Castro Lopo <erikd@mega-nerd.com>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 #include	"dft_cmp.h"
 
 #define	SAMPLE_RATE		16000
-#define	DATA_LENGTH		(SAMPLE_RATE / 8)
+#define	DATA_LENGTH		(SAMPLE_RATE)
 
 static float data_out [DATA_LENGTH] ;
 
@@ -96,81 +96,106 @@ vorbis_test (void)
 	for (k = 0 ; k < ARRAY_LEN (float_data) ; k ++)
 		max_abs = max_float (max_abs, fabs (float_data [k])) ;
 
-	if (max_abs > 1.021)
-	{	printf ("\n\n    Error : max_abs %f should be < 1.021.\n\n", max_abs) ;
-		exit (1) ;
-		} ;
+	exit_if_true (max_abs > 1.023,
+		"\n\nLine %d : max_abs %f should be < 1.023.\n\n", __LINE__, max_abs) ;
 
 	puts ("ok") ;
 	unlink (filename) ;
 } /* vorbis_test */
 
 static void
-vorbis_quality_test (void)
+compression_size_test (int format, const char * filename)
 {	/*
 	**	Encode two files, one at quality 0.3 and one at quality 0.5 and then
 	**	make sure that the quality 0.3 files is the smaller of the two.
 	*/
-	const char * q3_fname = "q3_vorbis.oga" ;
-	const char * q5_fname = "q5_vorbis.oga" ;
+	char q3_fname [64] ;
+	char q6_fname [64] ;
+	char test_name [64] ;
 
-	SNDFILE *q3_file, *q5_file ;
+	SNDFILE *q3_file, *q6_file ;
 	SF_INFO sfinfo ;
-	int q3_size, q5_size ;
+	int q3_size, q6_size ;
 	double quality ;
 	int k ;
 
-	print_test_name (__func__, "q[35]_vorbis.oga") ;
+	snprintf (q3_fname, sizeof (q3_fname), "q3_%s", filename) ;
+	snprintf (q6_fname, sizeof (q6_fname), "q6_%s", filename) ;
+
+	snprintf (test_name, sizeof (test_name), "q[36]_%s", filename) ;
+	print_test_name (__func__, test_name) ;
 
 	memset (&sfinfo, 0, sizeof (sfinfo)) ;
 
 	/* Set up output file type. */
-	sfinfo.format = SF_FORMAT_OGG | SF_FORMAT_VORBIS ;
+	sfinfo.format = format ;
 	sfinfo.channels = 1 ;
 	sfinfo.samplerate = SAMPLE_RATE ;
 
 	/* Write the output file. */
 	q3_file = test_open_file_or_die (q3_fname, SFM_WRITE, &sfinfo, SF_FALSE, __LINE__) ;
-	q5_file = test_open_file_or_die (q5_fname, SFM_WRITE, &sfinfo, SF_FALSE, __LINE__) ;
+	q6_file = test_open_file_or_die (q6_fname, SFM_WRITE, &sfinfo, SF_FALSE, __LINE__) ;
 
 	quality = 0.3 ;
 	sf_command (q3_file, SFC_SET_VBR_ENCODING_QUALITY, &quality, sizeof (quality)) ;
-	quality = 0.5 ;
-	sf_command (q5_file, SFC_SET_VBR_ENCODING_QUALITY, &quality, sizeof (quality)) ;
+	quality = 0.6 ;
+	sf_command (q6_file, SFC_SET_VBR_ENCODING_QUALITY, &quality, sizeof (quality)) ;
 
 	for (k = 0 ; k < 5 ; k++)
-	{	gen_lowpass_noise_float (data_out, ARRAY_LEN (data_out)) ;
+	{	gen_lowpass_signal_float (data_out, ARRAY_LEN (data_out)) ;
 		test_write_float_or_die (q3_file, 0, data_out, ARRAY_LEN (data_out), __LINE__) ;
-		test_write_float_or_die (q5_file, 0, data_out, ARRAY_LEN (data_out), __LINE__) ;
+		test_write_float_or_die (q6_file, 0, data_out, ARRAY_LEN (data_out), __LINE__) ;
 		} ;
 
 	sf_close (q3_file) ;
-	sf_close (q5_file) ;
+	sf_close (q6_file) ;
 
 	q3_size = file_length (q3_fname) ;
-	q5_size = file_length (q5_fname) ;
+	q6_size = file_length (q6_fname) ;
 
-	if (q3_size >= q5_size)
-	{	printf ("\n\nLine %d : q3 size (%d) >= q5 size (%d)\n\n", __LINE__, q3_size, q5_size) ;
-		exit (1) ;
-		} ;
+	exit_if_true (q3_size >= q6_size,
+		"\n\nLine %d : q3 size (%d) >= q6 size (%d)\n\n", __LINE__, q3_size, q6_size) ;
 
 	puts ("ok") ;
 	unlink (q3_fname) ;
-	unlink (q5_fname) ;
-} /* vorbis_quality_test */
+	unlink (q6_fname) ;
+} /* compression_size_test */
 
 
 
 int
-main (void)
-{
-	if (HAVE_EXTERNAL_LIBS)
+main (int argc, char *argv [])
+{	int all_tests = 0, tests = 0 ;
+
+	if (argc != 2)
+	{	printf (
+			"Usage : %s <test>\n"
+			"    Where <test> is one of:\n"
+			"        vorbis - test Ogg/Vorbis\n"
+			"        flac   - test FLAC\n"
+			"        all    - perform all tests\n",
+			argv [0]) ;
+		exit (0) ;
+		} ;
+
+	if (! HAVE_EXTERNAL_LIBS)
+	{	puts ("    No Ogg/Vorbis tests because Ogg/Vorbis support was not compiled in.") ;
+		return 0 ;
+	} ;
+
+	if (strcmp (argv [1], "all") == 0)
+		all_tests = 1 ;
+
+	if (all_tests || strcmp (argv [1], "vorbis") == 0)
 	{	vorbis_test () ;
-		vorbis_quality_test () ;
-		}
-	else
-		puts ("    No Ogg/Vorbis tests because Ogg/Vorbis support was not compiled in.") ;
+		compression_size_test (SF_FORMAT_OGG | SF_FORMAT_VORBIS, "vorbis.oga") ;
+		tests ++ ;
+		} ;
+
+	if (all_tests || strcmp (argv [1], "flac") == 0)
+	{	compression_size_test (SF_FORMAT_FLAC | SF_FORMAT_PCM_16, "pcm16.flac") ;
+		tests ++ ;
+		} ;
 
 	return 0 ;
 } /* main */

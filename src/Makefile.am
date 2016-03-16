@@ -2,16 +2,13 @@
 
 AUTOMAKE_OPTIONS = subdir-objects
 
-INCLUDES = @EXTERNAL_CFLAGS@
+AM_CPPFLAGS = $(EXTERNAL_CFLAGS)
 
 lib_LTLIBRARIES = libsndfile.la
 include_HEADERS = sndfile.hh
 nodist_include_HEADERS = sndfile.h
 
-noinst_LTLIBRARIES =  GSM610/libgsm.la G72x/libg72x.la libcommon.la
-
-OS_SPECIFIC_CFLAGS = @OS_SPECIFIC_CFLAGS@
-OS_SPECIFIC_LINKS = @OS_SPECIFIC_LINKS@
+noinst_LTLIBRARIES =  GSM610/libgsm.la G72x/libg72x.la ALAC/libalac.la libcommon.la
 
 SYMBOL_FILES = Symbols.gnu-binutils Symbols.darwin libsndfile-1.def Symbols.os2 Symbols.static
 
@@ -27,16 +24,16 @@ check_PROGRAMS = test_main G72x/g72x_test
 
 COMMON = common.c file_io.c command.c pcm.c ulaw.c alaw.c float32.c \
 		double64.c ima_adpcm.c ms_adpcm.c gsm610.c dwvw.c vox_adpcm.c \
-		interleave.c strings.c dither.c broadcast.c audio_detect.c \
- 		ima_oki_adpcm.c ima_oki_adpcm.h chunk.c ogg.c chanmap.c \
+		interleave.c strings.c dither.c cart.c broadcast.c audio_detect.c \
+ 		ima_oki_adpcm.c ima_oki_adpcm.h alac.c chunk.c ogg.c chanmap.c \
 		windows.c id3.c $(WIN_VERSION_FILE)
 
 FILESPECIFIC = sndfile.c aiff.c au.c avr.c caf.c dwd.c flac.c g72x.c htk.c ircam.c \
 		macbinary3.c macos.c mat4.c mat5.c nist.c paf.c pvf.c raw.c rx2.c sd2.c \
 		sds.c svx.c txw.c voc.c wve.c w64.c wav_w64.c wav.c xi.c mpc2k.c rf64.c \
-		ogg_vorbis.c ogg_speex.c ogg_pcm.c
+		ogg_vorbis.c ogg_speex.c ogg_pcm.c ogg_opus.c
 
-CLEANFILES = *~
+CLEANFILES = *~ *.exe G72x/*.exe error.dat
 
 if USE_WIN_VERSION_FILE
 WIN_VERSION_FILE = version-metadata.rc
@@ -46,11 +43,11 @@ endif
 
 #===============================================================================
 # MinGW requires -no-undefined if a DLL is to be built.
-libsndfile_la_LDFLAGS = -no-undefined -version-info @SHARED_VERSION_INFO@ @SHLIB_VERSION_ARG@
+libsndfile_la_LDFLAGS = -no-undefined -version-info  $(SHARED_VERSION_INFO) $(SHLIB_VERSION_ARG)
 libsndfile_la_SOURCES = $(FILESPECIFIC) $(noinst_HEADERS)
 nodist_libsndfile_la_SOURCES = $(nodist_include_HEADERS)
-libsndfile_la_LIBADD = libcommon.la GSM610/libgsm.la G72x/libg72x.la \
-		@EXTERNAL_LIBS@ -lm
+libsndfile_la_LIBADD = GSM610/libgsm.la G72x/libg72x.la ALAC/libalac.la \
+		libcommon.la $(EXTERNAL_LIBS) -lm
 
 libcommon_la_SOURCES = $(COMMON)
 
@@ -63,24 +60,31 @@ GSM610_libgsm_la_SOURCES = GSM610/config.h GSM610/gsm.h GSM610/gsm610_priv.h \
 		GSM610/gsm_option.c GSM610/long_term.c GSM610/lpc.c GSM610/preprocess.c \
 		GSM610/rpe.c GSM610/short_term.c GSM610/table.c
 
-G72x_libg72x_la_SOURCES = $(COMMON)G72x/g72x.h G72x/g72x_priv.h \
+G72x_libg72x_la_SOURCES = G72x/g72x.h G72x/g72x_priv.h \
 		G72x/g721.c G72x/g723_16.c G72x/g723_24.c G72x/g723_40.c G72x/g72x.c
 
-#======================================================================
+ALAC_libalac_la_SOURCES = ALAC/ALACAudioTypes.h ALAC/ALACBitUtilities.h \
+		ALAC/EndianPortable.h ALAC/aglib.h ALAC/dplib.h ALAC/matrixlib.h \
+		ALAC/alac_codec.h ALAC/shift.h \
+		ALAC/ALACBitUtilities.c ALAC/ag_dec.c \
+		ALAC/ag_enc.c ALAC/dp_dec.c ALAC/dp_enc.c ALAC/matrix_dec.c \
+		ALAC/matrix_enc.c ALAC/alac_decoder.c ALAC/alac_encoder.c
+
+#===============================================================================
 # Test programs.
 
 test_main_SOURCES = test_main.c test_main.h test_conversions.c test_float.c test_endswap.c \
 					test_audio_detect.c test_log_printf.c test_file_io.c test_ima_oki_adpcm.c \
-					test_strncpy_crlf.c test_broadcast_var.c
+					test_strncpy_crlf.c test_broadcast_var.c test_cart_var.c
 test_main_LDADD = libcommon.la
 
 G72x_g72x_test_SOURCES = G72x/g72x_test.c
 G72x_g72x_test_LDADD = G72x/libg72x.la
 
 test_endswap.c: test_endswap.def test_endswap.tpl
-	autogen --writable test_endswap.def
+	cd $(srcdir) && autogen --writable test_endswap.def && cd $(abs_builddir)
 
-genfiles : test_endswap.c $(SYMBOL_FILES)
+genfiles : $(SYMBOL_FILES) test_endswap.c
 
 check :
 	@if [ -x /usr/bin/python ]; then $(srcdir)/binheader_writef_check.py $(srcdir)/*.c ; fi
@@ -96,19 +100,19 @@ checkprograms : $(check_PROGRAMS)
 # end user to create these files.
 
 Symbols.gnu-binutils: create_symbols_file.py
-	./create_symbols_file.py linux $(VERSION) > $@
+	python $(srcdir)/create_symbols_file.py linux $(VERSION) > $@
 
 Symbols.darwin: create_symbols_file.py
-	./create_symbols_file.py darwin $(VERSION) > $@
+	python $(srcdir)/create_symbols_file.py darwin $(VERSION) > $@
 
 libsndfile-1.def: create_symbols_file.py
-	./create_symbols_file.py win32 $(VERSION) > $@
+	python $(srcdir)/create_symbols_file.py win32 $(VERSION) > $@
 
 Symbols.os2: create_symbols_file.py
-	./create_symbols_file.py os2 $(VERSION) > $@
+	python $(srcdir)/create_symbols_file.py os2 $(VERSION) > $@
 
 Symbols.static: create_symbols_file.py
-	./create_symbols_file.py static $(VERSION) > $@
+	python $(srcdir)/create_symbols_file.py static $(VERSION) > $@
 
 # Fake dependancy to force the creation of these files.
 sndfile.o : $(SYMBOL_FILES)

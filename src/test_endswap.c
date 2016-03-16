@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2002-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 2002-2013 Erik de Castro Lopo <erikd@mega-nerd.com>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU Lesser General Public License as published by
@@ -224,12 +224,97 @@ test_endswap_int64_t (void)
 
 
 
+static void
+test_psf_put_be16 (void)
+{	const char *test = "AB" ;
+	uint8_t array [32] ;
+	int k ;
+
+	printf ("    %-40s : ", __func__) ;
+	fflush (stdout) ;
+
+	for (k = 0 ; k < 10 ; k++)
+	{	memset (array, 0, sizeof (array)) ;
+
+		psf_put_be16 (array, k, 0x4142) ;
+		if (memcmp (array + k, test, sizeof (int16_t)) != 0)
+		{	printf ("\n\nLine %d : Put failed at index %d.\n", __LINE__, k) ;
+			exit (1) ;
+			} ;
+		if (psf_get_be16 (array, k) != 0x4142)
+		{	printf ("\n\nLine %d : Get failed at index %d.\n", __LINE__, k) ;
+			exit (1) ;
+			} ;
+		} ;
+
+	puts ("ok") ;
+} /* test_psf_put_be16 */
+
+static void
+test_psf_put_be32 (void)
+{	const char *test = "0123" ;
+	uint8_t array [32] ;
+	int k ;
+
+	printf ("    %-40s : ", __func__) ;
+	fflush (stdout) ;
+
+	for (k = 0 ; k < 10 ; k++)
+	{	memset (array, 0, sizeof (array)) ;
+
+		psf_put_be32 (array, k, 0x30313233) ;
+		if (memcmp (array + k, test, sizeof (int32_t)) != 0)
+		{	printf ("\n\nLine %d : Put failed at index %d.\n", __LINE__, k) ;
+			exit (1) ;
+			} ;
+		if (psf_get_be32 (array, k) != 0x30313233)
+		{	printf ("\n\nLine %d : Get failed at index %d.\n", __LINE__, k) ;
+			exit (1) ;
+			} ;
+		} ;
+
+	puts ("ok") ;
+} /* test_psf_put_be32 */
+
+static void
+test_psf_put_be64 (void)
+{	const char *test = "01234567" ;
+	uint8_t array [32] ;
+	int k ;
+
+	printf ("    %-40s : ", __func__) ;
+	fflush (stdout) ;
+
+	for (k = 0 ; k < 10 ; k++)
+	{	memset (array, 0, sizeof (array)) ;
+
+		psf_put_be64 (array, k, 0x3031323334353637) ;
+		if (memcmp (array + k, test, sizeof (int64_t)) != 0)
+		{	printf ("\n\nLine %d : Put failed at index %d.\n", __LINE__, k) ;
+			exit (1) ;
+			} ;
+		if (psf_get_be64 (array, k) != 0x3031323334353637)
+		{	printf ("\n\nLine %d : Get failed at index %d.\n", __LINE__, k) ;
+			exit (1) ;
+			} ;
+		} ;
+
+	puts ("ok") ;
+} /* test_psf_put_be64 */
+
+
 void
 test_endswap (void)
 {
 	test_endswap_short () ;
 	test_endswap_int () ;
 	test_endswap_int64_t () ;
+
+
+	test_psf_put_be16 () ;
+	test_psf_put_be32 () ;
+	test_psf_put_be64 () ;
+
 
 } /* test_endswap */
 
