@@ -128,7 +128,7 @@ AC_ARG_ENABLE(alsa,
 	AC_HELP_STRING([--disable-alsa], [disable use of ALSA]))
 
 AC_ARG_ENABLE(external-libs,
-	AC_HELP_STRING([--disable-external-libs], [disable use of Ogg and Vorbis [[default=no]]]))
+	AC_HELP_STRING([--disable-external-libs], [disable use of FLAC, Ogg and Vorbis [[default=no]]]))
 
 AC_ARG_ENABLE(octave,
 	AC_HELP_STRING([--enable-octave], [disable building of GNU Octave module]))
@@ -289,7 +289,7 @@ else
 	fi
 
 #====================================================================================
-# Check for Ogg, Vorbis.
+# Check for Ogg, Vorbis and FLAC.
 
 HAVE_EXTERNAL_LIBS=0
 EXTERNAL_CFLAGS=""
@@ -301,7 +301,7 @@ m4_ifdef([PKG_INSTALLDIR], [PKG_INSTALLDIR], AC_SUBST([pkgconfigdir], ${libdir}/
 
 if test -n "$PKG_CONFIG" ; then
 	if test x$enable_external_libs = xno ; then
-		AC_MSG_WARN([[*** External libs (Ogg, Vorbis) disabled. ***]])
+		AC_MSG_WARN([[*** External libs (FLAC, Ogg, Vorbis) disabled. ***]])
 	else
 		PKG_CHECK_MOD_VERSION(FLAC, flac >= 1.3.1, ac_cv_flac=yes, ac_cv_flac=no)
 
@@ -325,7 +325,7 @@ if test -n "$PKG_CONFIG" ; then
 		enable_external_libs=yes
 		fi
 
-	if test x$ac_cv_ogg$ac_cv_vorbis$ac_cv_vorbisenc = "xyesyesyes" ; then
+	if test x$ac_cv_flac$ac_cv_ogg$ac_cv_vorbis$ac_cv_vorbisenc = "xyesyesyesyes" ; then
 		HAVE_EXTERNAL_LIBS=1
 		enable_external_libs=yes
 
@@ -333,7 +333,7 @@ if test -n "$PKG_CONFIG" ; then
 		EXTERNAL_LIBS="$FLAC_LIBS $OGG_LIBS $VORBIS_LIBS $VORBISENC_LIBS $SPEEX_LIBS "
 	else
 		echo
-		AC_MSG_WARN([[*** One or more of the external libraries (ie libogg and]])
+		AC_MSG_WARN([[*** One or more of the external libraries (ie libflac, libogg and]])
 		AC_MSG_WARN([[*** libvorbis) is either missing (possibly only the development]])
 		AC_MSG_WARN([[*** headers) or is of an unsupported version.]])
 		AC_MSG_WARN([[***]])
@@ -344,7 +344,7 @@ if test -n "$PKG_CONFIG" ; then
 		fi
 	fi
 
-AC_DEFINE_UNQUOTED([HAVE_EXTERNAL_LIBS], $HAVE_EXTERNAL_LIBS, [Will be set to 1 if ogg and vorbis are available.])
+AC_DEFINE_UNQUOTED([HAVE_EXTERNAL_LIBS], $HAVE_EXTERNAL_LIBS, [Will be set to 1 if flac, ogg and vorbis are available.])
 
 #====================================================================================
 # Check for libsqlite3 (only used in regtest).
@@ -674,13 +674,13 @@ AC_MSG_RESULT([
 
     Experimental code : ................... ${enable_experimental:-no}
     Using ALSA in example programs : ...... ${enable_alsa:-no}
-    External Ogg/Vorbis : ............ ${enable_external_libs:-no}
+    External FLAC/Ogg/Vorbis : ............ ${enable_external_libs:-no}
 ])
 
 if test -z "$PKG_CONFIG" ; then
 	echo "    *****************************************************************"
 	echo "    ***          The pkg-config program is missing.               ***"
-	echo "    *** External Ogg/Vorbis libs cannot be found without it. ***"
+	echo "    *** External FLAC/Ogg/Vorbis libs cannot be found without it. ***"
 	echo "    ***       http://pkg-config.freedesktop.org/wiki/             ***"
 	echo "    *****************************************************************"
 	echo

@@ -29,7 +29,7 @@
 #include	"sndfile.h"
 #include	"common.h"
 
-#if 0
+#if HAVE_EXTERNAL_LIBS
 
 #include	<FLAC/stream_decoder.h>
 #include	<FLAC/stream_encoder.h>

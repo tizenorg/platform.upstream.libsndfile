@@ -1,5 +1,5 @@
 Name:           libsndfile
-Version:        1.0.25
+Version:        1.0.26
 Release:        0
 License:        LGPL-2.1+
 Summary:        C library for reading and writing sound files
@@ -61,7 +61,7 @@ rm -rf %{buildroot}%{_bindir}
 rm -rf %{buildroot}%{_mandir}/man1
 # remove binaries from examples directory
 make -C examples distclean
-rm -rf %{buildroot}%{_datadir}/doc/libsndfile1-dev
+rm -rf %{buildroot}%{_datadir}/doc/libsndfile
 
 %post  -p /sbin/ldconfig
 
