@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2008-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 2008-2014 Erik de Castro Lopo <erikd@mega-nerd.com>
 ** Copyright (C) 2008 Conrad Parker <conrad@metadecks.org>
 **
 ** All rights reserved.
@@ -97,7 +97,7 @@ compare (void)
 	/* Calculate the framecount that will fit in our data buffers */
 	items = BUFLEN / sfinfo1.channels ;
 
-	while ( (nread1 = sf_readf_double (sf1, buf1, items)) > 0)
+	while ((nread1 = sf_readf_double (sf1, buf1, items)) > 0)
 	{	nread2 = sf_readf_double (sf2, buf2, nread1) ;
 		if (nread2 != nread1)
 		{	retval = comparison_error ("PCM data lengths", -1) ;
@@ -112,7 +112,7 @@ compare (void)
 		offset += nread1 ;
 		} ;
 
-	if ( (nread2 = sf_readf_double (sf2, buf2, nread1)) != 0)
+	if ((nread2 = sf_readf_double (sf2, buf2, items)) != 0)
 	{	retval = comparison_error ("PCM data lengths", -1) ;
 		goto out ;
 		} ;
@@ -125,21 +125,12 @@ out :
 } /* compare */
 
 static void
-print_version (void)
-{	char buffer [256] ;
-
-	sf_command (NULL, SFC_GET_LIB_VERSION, buffer, sizeof (buffer)) ;
-	printf ("\nVersion : %s\n\n", buffer) ;
-} /* print_version */
-
-static void
 usage_exit (void)
 {
-	print_version () ;
-
 	printf ("Usage : %s <filename> <filename>\n", progname) ;
 	printf ("	Compare the PCM data of two sound files.\n\n") ;
-	exit (0) ;
+	printf ("Using %s.\n\n", sf_version_string ()) ;
+	exit (1) ;
 } /* usage_exit */
 
 int
@@ -148,9 +139,7 @@ main (int argc, char *argv [])
 	progname = program_name (argv [0]) ;
 
 	if (argc != 3)
-	{	usage_exit () ;
-		return 1 ;
-		} ;
+		usage_exit () ;
 
 	filename1 = argv [argc - 2] ;
 	filename2 = argv [argc - 1] ;
@@ -158,7 +147,6 @@ main (int argc, char *argv [])
 	if (strcmp (filename1, filename2) == 0)
 	{	printf ("Error : Input filenames are the same.\n\n") ;
 		usage_exit () ;
-		return 1 ;
 		} ;
 
 	return compare () ;

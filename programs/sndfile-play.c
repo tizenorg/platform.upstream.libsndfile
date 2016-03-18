@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 1999-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 1999-2015 Erik de Castro Lopo <erikd@mega-nerd.com>
 **
 ** All rights reserved.
 **
@@ -52,16 +52,27 @@
 	#include <sys/time.h>
 #endif
 
-#if defined (__linux__) || defined (__FreeBSD_kernel__) || defined (__FreeBSD__)
+#if defined (__ANDROID__)
+
+#elif defined (__linux__) || defined (__FreeBSD_kernel__) || defined (__FreeBSD__)
 	#include 	<fcntl.h>
 	#include 	<sys/ioctl.h>
 	#include 	<sys/soundcard.h>
 
 #elif (defined (__MACH__) && defined (__APPLE__))
-	#include <Carbon.h>
-	#include <CoreAudio/AudioHardware.h>
+	#include <AvailabilityMacros.h>
+	#include <Availability.h>
 
-#elif defined (HAVE_SNDIO_H)
+	#if (OSX_DARWIN_VERSION > 11)
+		/* Includes go here. */
+	#elif (OSX_DARWIN_VERSION == 11)
+		#include <AudioToolbox/AudioToolbox.h>
+	#elif (OSX_DARWIN_VERSION > 0 && OSX_DARWIN_VERSION <= 10)
+		#include <Carbon.h>
+		#include <CoreAudio/AudioHardware.h>
+	#endif
+
+#elif HAVE_SNDIO_H
 	#include <sndio.h>
 
 #elif (defined (sun) && defined (unix))
@@ -353,7 +364,7 @@ alsa_write_float (snd_pcm_t *alsa_dev, float *data, int frames, int channels)
 **	Linux/OSS functions for playing a sound.
 */
 
-#if defined (__linux__) || defined (__FreeBSD_kernel__) || defined (__FreeBSD__)
+#if !defined (__ANDROID__) && (defined (__linux__) || defined (__FreeBSD_kernel__) || defined (__FreeBSD__))
 
 static	int	opensoundsys_open_device (int channels, int srate) ;
 
@@ -444,7 +455,7 @@ opensoundsys_open_device (int channels, int srate)
 	if (ioctl (fd, SNDCTL_DSP_SETFMT, &fmt) != 0)
 	{	perror ("opensoundsys_open_device : set format ") ;
 		exit (1) ;
-  		} ;
+		} ;
 
 	if (ioctl (fd, SNDCTL_DSP_CHANNELS, &channels) != 0)
 	{	perror ("opensoundsys_open_device : channels ") ;
@@ -470,7 +481,174 @@ opensoundsys_open_device (int channels, int srate)
 **	Mac OS X functions for playing a sound.
 */
 
-#if (defined (__MACH__) && defined (__APPLE__)) /* MacOSX */
+#if (OSX_DARWIN_VERSION > 11)
+/* MacOSX 10.8 use a new Audio API. Someone needs to write some code for it. */
+#endif /* OSX_DARWIN_VERSION > 11 */
+
+#if (OSX_DARWIN_VERSION == 11)
+/* MacOSX 10.7 use AudioQueue API */
+
+#define kBytesPerAudioBuffer	(1024 * 8)
+#define kNumberOfAudioBuffers	4
+
+typedef struct
+{	AudioStreamBasicDescription		format ;
+
+	AudioQueueRef		queue ;
+	AudioQueueBufferRef	queueBuffer [kNumberOfAudioBuffers] ;
+
+	UInt32 			buf_size ;
+
+	SNDFILE 		*sndfile ;
+	SF_INFO 		sfinfo ;
+
+	int				done_playing ;
+} MacOSXAudioData ;
+
+
+static void
+macosx_fill_buffer (MacOSXAudioData *audio_data, AudioQueueBufferRef audio_buffer)
+{	int		size, sample_count, read_count ;
+	short	*buffer ;
+
+	size = audio_buffer->mAudioDataBytesCapacity ;
+	sample_count = size / sizeof (short) ;
+
+	buffer = (short*) audio_buffer->mAudioData ;
+
+	read_count = sf_read_short (audio_data->sndfile, buffer, sample_count) ;
+
+	if (read_count > 0)
+	{	audio_buffer->mAudioDataByteSize = read_count * sizeof (short) ;
+		AudioQueueEnqueueBuffer (audio_data->queue, audio_buffer, 0, NULL) ;
+		}
+	else
+		AudioQueueStop (audio_data->queue, false) ;
+
+} /* macosx_fill_buffer */
+
+
+static void
+macosx_audio_out_callback (void *user_data, AudioQueueRef audio_queue, AudioQueueBufferRef audio_buffer)
+{	MacOSXAudioData *audio_data = (MacOSXAudioData *) user_data ;
+
+	if (audio_data->queue == audio_queue)
+		macosx_fill_buffer (audio_data, audio_buffer) ;
+
+} /* macosx_audio_out_callback */
+
+
+static void
+macosx_audio_out_property_callback (void *user_data, AudioQueueRef audio_queue, AudioQueuePropertyID prop)
+{	MacOSXAudioData *audio_data = (MacOSXAudioData *) user_data ;
+
+	if (prop == kAudioQueueProperty_IsRunning)
+	{	UInt32 is_running = 0 ;
+		UInt32 is_running_size = sizeof (is_running) ;
+
+		AudioQueueGetProperty (audio_queue, kAudioQueueProperty_IsRunning, &is_running, &is_running_size) ;
+
+		if (!is_running)
+		{	audio_data->done_playing = SF_TRUE ;
+			CFRunLoopStop (CFRunLoopGetCurrent ()) ;
+			} ;
+		} ;
+} /* macosx_audio_out_property_callback */
+
+
+
+static void
+macosx_play (int argc, char *argv [])
+{	MacOSXAudioData 	audio_data ;
+	OSStatus	err ;
+	int 		i ;
+	int 		k ;
+
+	memset (&audio_data, 0x55, sizeof (audio_data)) ;
+
+	for (k = 1 ; k < argc ; k++)
+	{	memset (&(audio_data.sfinfo), 0, sizeof (audio_data.sfinfo)) ;
+
+		printf ("Playing %s\n", argv [k]) ;
+		if (! (audio_data.sndfile = sf_open (argv [k], SFM_READ, &(audio_data.sfinfo))))
+		{	puts (sf_strerror (NULL)) ;
+			continue ;
+			} ;
+
+		if (audio_data.sfinfo.channels < 1 || audio_data.sfinfo.channels > 2)
+		{	printf ("Error : channels = %d.\n", audio_data.sfinfo.channels) ;
+			continue ;
+			} ;
+
+		/*  fill ASBD */
+		audio_data.format.mSampleRate = audio_data.sfinfo.samplerate ;
+		audio_data.format.mChannelsPerFrame	= audio_data.sfinfo.channels ;
+		audio_data.format.mFormatID			= kAudioFormatLinearPCM ;
+		audio_data.format.mFormatFlags		= kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked ;
+		audio_data.format.mBytesPerPacket	= audio_data.format.mChannelsPerFrame * 2 ;
+		audio_data.format.mFramesPerPacket	= 1 ;
+		audio_data.format.mBytesPerFrame	= audio_data.format.mBytesPerPacket ;
+		audio_data.format.mBitsPerChannel	= 16 ;
+		audio_data.format.mReserved			= 0 ;
+
+		/* create the queue */
+		if ((err = AudioQueueNewOutput (&(audio_data.format), macosx_audio_out_callback, &audio_data,
+					CFRunLoopGetCurrent (), kCFRunLoopCommonModes, 0, &(audio_data.queue))) != noErr)
+		{	printf ("AudioQueueNewOutput failed\n") ;
+			return ;
+			} ;
+
+		/*  add property listener */
+		if ((err = AudioQueueAddPropertyListener (audio_data.queue, kAudioQueueProperty_IsRunning, macosx_audio_out_property_callback, &audio_data)) != noErr)
+		{	printf ("AudioQueueAddPropertyListener failed\n") ;
+			return ;
+			} ;
+
+		/*  create the buffers */
+		for (i = 0 ; i < kNumberOfAudioBuffers ; i++)
+		{	if ((err = AudioQueueAllocateBuffer (audio_data.queue, kBytesPerAudioBuffer, &audio_data.queueBuffer [i])) != noErr)
+			{	printf ("AudioQueueAllocateBuffer failed\n") ;
+				return ;
+				} ;
+
+			macosx_fill_buffer (&audio_data, audio_data.queueBuffer [i]) ;
+			} ;
+
+		audio_data.done_playing = SF_FALSE ;
+
+		/* start queue */
+		if ((err = AudioQueueStart (audio_data.queue, NULL)) != noErr)
+		{	printf ("AudioQueueStart failed\n") ;
+			return ;
+		} ;
+
+		while (audio_data.done_playing == SF_FALSE)
+			CFRunLoopRun () ;
+
+		/*  free the buffers */
+		for (i = 0 ; i < kNumberOfAudioBuffers ; i++)
+		{	if ((err = AudioQueueFreeBuffer (audio_data.queue, audio_data.queueBuffer [i])) != noErr)
+			{	printf ("AudioQueueFreeBuffer failed\n") ;
+				return ;
+				} ;
+			} ;
+
+		/*  free the queue */
+		if ((err = AudioQueueDispose (audio_data.queue, true)) != noErr)
+		{	printf ("AudioQueueDispose failed\n") ;
+			return ;
+			} ;
+
+		sf_close (audio_data.sndfile) ;
+		} ;
+
+	return ;
+} /* macosx_play, AudioQueue implementation */
+
+#endif /* OSX_DARWIN_VERSION == 11 */
+
+#if (OSX_DARWIN_VERSION > 0 && OSX_DARWIN_VERSION <= 10)
+/* MacOSX 10.6 or earlier, use Carbon and AudioHardware API */
 
 typedef struct
 {	AudioStreamBasicDescription		format ;
@@ -569,7 +747,9 @@ macosx_play (int argc, char *argv [])
 
 	/* Base setup completed. Now play files. */
 	for (k = 1 ; k < argc ; k++)
-	{	printf ("Playing %s\n", argv [k]) ;
+	{	memset (&(audio_data.sfinfo), 0, sizeof (audio_data.sfinfo)) ;
+
+		printf ("Playing %s\n", argv [k]) ;
 		if (! (audio_data.sndfile = sf_open (argv [k], SFM_READ, &(audio_data.sfinfo))))
 		{	puts (sf_strerror (NULL)) ;
 			continue ;
@@ -630,22 +810,21 @@ macosx_play (int argc, char *argv [])
 		} ;
 
 	return ;
-} /* macosx_play */
+} /* macosx_play, AudioHardware implementation */
 
-#endif /* MacOSX */
-
+#endif /* OSX_DARWIN_VERSION > 0 && OSX_DARWIN_VERSION <= 10 */
 
 /*------------------------------------------------------------------------------
 **	Win32 functions for playing a sound.
 **
 **	This API sucks. Its needlessly complicated and is *WAY* too loose with
-**	passing pointers arounf in integers and and using char* pointers to
+**	passing pointers around in integers and using char* pointers to
 **  point to data instead of short*. It plain sucks!
 */
 
 #if (OS_IS_WIN32 == 1)
 
-#define	WIN32_BUFFER_LEN	(1<<15)
+#define	WIN32_BUFFER_LEN	(1 << 15)
 
 typedef struct
 {	HWAVEOUT	hwave ;
@@ -701,8 +880,9 @@ win32_audio_out_callback (HWAVEOUT hwave, UINT msg, DWORD_PTR data, DWORD param1
 {	Win32_Audio_Data	*audio_data ;
 
 	/* Prevent compiler warnings. */
-	hwave = hwave ;
-	param1 = param2 ;
+	(void) hwave ;
+	(void) param1 ;
+	(void) param2 ;
 
 	if (data == 0)
 		return ;
@@ -825,16 +1005,16 @@ win32_play (int argc, char *argv [])
 #endif /* Win32 */
 
 /*------------------------------------------------------------------------------
-**	OpenBDS's sndio.
+**	OpenBSD's sndio.
 */
 
-#if defined (HAVE_SNDIO_H)
+#if HAVE_SNDIO_H
 
 static void
 sndio_play (int argc, char *argv [])
 {	struct sio_hdl	*hdl ;
 	struct sio_par	par ;
-	short	 	buffer [BUFFER_LEN] ;
+	short buffer [BUFFER_LEN] ;
 	SNDFILE	*sndfile ;
 	SF_INFO	sfinfo ;
 	int		k, readcount ;
@@ -980,7 +1160,7 @@ main (int argc, char *argv [])
 	if (argc < 2)
 	{
 		printf ("\nUsage : %s <input sound file>\n\n", program_name (argv [0])) ;
-		printf ("  Using %s.\n\n", sf_version_string ()) ;
+		printf ("Using %s.\n\n", sf_version_string ()) ;
 #if (OS_IS_WIN32 == 1)
 		printf ("This is a Unix style command line application which\n"
 				"should be run in a MSDOS box or Command Shell window.\n\n") ;
@@ -991,7 +1171,11 @@ main (int argc, char *argv [])
 		return 1 ;
 		} ;
 
-#if defined (__linux__)
+#if defined (__ANDROID__)
+	puts ("*** Playing sound not yet supported on Android.") ;
+	puts ("*** Please feel free to submit a patch.") ;
+	return 1 ;
+#elif defined (__linux__)
 	#if HAVE_ALSA_ASOUNDLIB_H
 		if (access ("/proc/asound/cards", R_OK) == 0)
 			alsa_play (argc, argv) ;
@@ -1000,14 +1184,18 @@ main (int argc, char *argv [])
 		opensoundsys_play (argc, argv) ;
 #elif defined (__FreeBSD_kernel__) || defined (__FreeBSD__)
 	opensoundsys_play (argc, argv) ;
-#elif (defined (__MACH__) && defined (__APPLE__))
+#elif (defined (__MACH__) && defined (__APPLE__) && OSX_DARWIN_VERSION <= 11)
 	macosx_play (argc, argv) ;
-#elif defined HAVE_SNDIO_H
+#elif HAVE_SNDIO_H
 	sndio_play (argc, argv) ;
 #elif (defined (sun) && defined (unix))
 	solaris_play (argc, argv) ;
 #elif (OS_IS_WIN32 == 1)
 	win32_play (argc, argv) ;
+#elif (defined (__MACH__) && defined (__APPLE__) && OSX_DARWIN_VERSION > 11)
+	printf ("OS X 10.8 and later have a new Audio API.\n") ;
+	printf ("Someone needs to write code to use that API.\n") ;
+	return 1 ;
 #elif defined (__BEOS__)
 	printf ("This program cannot be compiled on BeOS.\n") ;
 	printf ("Instead, compile the file sfplay_beos.cpp.\n") ;

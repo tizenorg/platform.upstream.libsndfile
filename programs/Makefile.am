@@ -7,9 +7,9 @@ bin_PROGRAMS = sndfile-info sndfile-play sndfile-convert sndfile-cmp \
 OS_SPECIFIC_CFLAGS = @OS_SPECIFIC_CFLAGS@
 OS_SPECIFIC_LINKS = @OS_SPECIFIC_LINKS@
 
-INCLUDES = -I$(top_srcdir)/src $(OS_SPECIFIC_CFLAGS)
+AM_CPPFLAGS = -I$(top_srcdir)/src $(OS_SPECIFIC_CFLAGS)
 
-CLEANFILES = *~
+CLEANFILES = *~ sndfile-*.exe
 
 # This is the BeOS version of sndfile-play. It needs to be compiled with the C++
 # compiler.

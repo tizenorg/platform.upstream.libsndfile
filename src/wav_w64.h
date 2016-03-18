@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 1999-2011 Erik de Castro Lopo <erikd@mega-nerd.com>
+** Copyright (C) 1999-2015 Erik de Castro Lopo <erikd@mega-nerd.com>
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU Lesser General Public License as published by
@@ -28,9 +28,9 @@
 
 enum
 {
-  /* keep sorted for wav_w64_format_str() */
+	/* keep sorted for wav_w64_format_str() */
 	WAVE_FORMAT_UNKNOWN					= 0x0000,		/* Microsoft Corporation */
-	WAVE_FORMAT_PCM	 					= 0x0001, 		/* Microsoft PCM format */
+	WAVE_FORMAT_PCM						= 0x0001, 		/* Microsoft PCM format */
 	WAVE_FORMAT_MS_ADPCM				= 0x0002,		/* Microsoft ADPCM */
 	WAVE_FORMAT_IEEE_FLOAT				= 0x0003,		/* Micrososft 32 bit float format */
 	WAVE_FORMAT_VSELP					= 0x0004,		/* Compaq Computer Corporation */
@@ -264,6 +264,12 @@ typedef struct
 	/* Set to true when 'fmt ' chunk is ambiguous.*/
 	int fmt_is_broken ;
 	WAV_FMT wav_fmt ;
+
+	/*
+	** Set to true when RF64 should be converted back to RIFF when writing the
+	** header.
+	*/
+	int rf64_downgrade ;
 } WAV_PRIVATE ;
 
 #define		WAV_W64_GSM610_BLOCKSIZE	65
@@ -290,6 +296,9 @@ int		wavex_gen_channel_mask (const int *chan_map, int channels) ;
 
 int		wav_read_bext_chunk (SF_PRIVATE *psf, unsigned int chunksize) ;
 int		wav_write_bext_chunk (SF_PRIVATE *psf) ;
+
+int		wav_read_cart_chunk (SF_PRIVATE *psf, unsigned int chunksize) ;
+int		wav_write_cart_chunk (SF_PRIVATE *psf) ;
 
 #endif
 
