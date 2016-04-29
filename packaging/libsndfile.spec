@@ -1,6 +1,6 @@
 Name:           libsndfile
 Version:        1.0.26
-Release:        0
+Release:        1
 License:        LGPL-2.1+
 Summary:        C library for reading and writing sound files
 Group:          Multimedia/Audio

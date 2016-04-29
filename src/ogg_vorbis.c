@@ -72,7 +72,9 @@
 
 #include <ogg/ogg.h>
 #include <vorbis/codec.h>
+#if ENABLE_VORBIS_ENC /* default disabled for memory optimization */
 #include <vorbis/vorbisenc.h>
+#endif
 
 #include "ogg.h"
 
@@ -348,7 +350,9 @@ vorbis_write_header (SF_PRIVATE *psf, int UNUSED (calc_length))
 	vorbis_info_init (&vdata->vinfo) ;
 
 	/* The style of encoding should be selectable here, VBR quality mode. */
+#if ENABLE_VORBIS_ENC
 	ret = vorbis_encode_init_vbr (&vdata->vinfo, psf->sf.channels, psf->sf.samplerate, vdata->quality) ;
+#endif
 
 #if 0
 	ret = vorbis_encode_init (&vdata->vinfo, psf->sf.channels, psf->sf.samplerate, -1, 128000, -1) ; /* average bitrate mode */
