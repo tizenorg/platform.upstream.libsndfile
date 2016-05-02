@@ -39,8 +39,10 @@ cp %{SOURCE1001} .
 %build
 %define warn_flags -W -Wall -Wstrict-prototypes -Wpointer-arith -Wno-unused-parameter
 autoreconf --force --install
-CFLAGS="%{optflags} %{warn_flags}"
+CFLAGS="%{optflags} %{warn_flags} -D__TIZEN__"
 export CFLAGS
+LDFLAGS="-ldl"
+export LDFLAGS
 %configure --disable-static \
     --disable-dependency-tracking \
     --disable-sqlite --disable-alsa
@@ -57,7 +59,7 @@ mkdir -p %{buildroot}/usr/share/license
 cp COPYING %{buildroot}/usr/share/license/%{name}
 %make_install
 # remove programs; built in another spec file
-rm -rf %{buildroot}%{_bindir}
+#rm -rf %{buildroot}%{_bindir}
 rm -rf %{buildroot}%{_mandir}/man1
 # remove binaries from examples directory
 make -C examples distclean
@@ -72,6 +74,7 @@ rm -rf %{buildroot}%{_datadir}/doc/libsndfile
 %defattr(-, root, root)
 %license COPYING
 %{_libdir}/libsndfile.so.1*
+%{_bindir}/*
 /usr/share/license/%{name}
 
 %files devel

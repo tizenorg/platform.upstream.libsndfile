@@ -60,6 +60,9 @@ main (int argc, char **argv)
 	encode_file (argv [1], "imaadpcm.wav", SF_FORMAT_WAV | SF_FORMAT_MS_ADPCM) ;
 	encode_file (argv [1], "msadpcm.wav", SF_FORMAT_WAV | SF_FORMAT_IMA_ADPCM) ;
 	encode_file (argv [1], "gsm610.wav"	, SF_FORMAT_WAV | SF_FORMAT_GSM610) ;
+#if 1 /* For temporal testing of encoding ogg/vorbis functionality */
+	encode_file (argv [1], "pcm16.ogg"	, SF_FORMAT_OGG | SF_FORMAT_VORBIS) ;
+#endif
 
 	/* Soundforge W64. */
 	encode_file (argv [1], "pcmu8.w64"	, SF_FORMAT_W64 | SF_FORMAT_PCM_U8) ;
