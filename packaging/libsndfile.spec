@@ -39,8 +39,10 @@ cp %{SOURCE1001} .
 %build
 %define warn_flags -W -Wall -Wstrict-prototypes -Wpointer-arith -Wno-unused-parameter
 autoreconf --force --install
-CFLAGS="%{optflags} %{warn_flags}"
+CFLAGS="%{optflags} %{warn_flags} -D__TIZEN__"
 export CFLAGS
+LDFLAGS="-ldl"
+export LDFLAGS
 %configure --disable-static \
     --disable-dependency-tracking \
     --disable-sqlite --disable-alsa

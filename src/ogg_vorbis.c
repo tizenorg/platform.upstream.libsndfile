@@ -70,9 +70,13 @@
 
 #if HAVE_EXTERNAL_LIBS
 
+
 #include <ogg/ogg.h>
 #include <vorbis/codec.h>
-#if ENABLE_VORBIS_ENC /* default disabled for memory optimization */
+
+#ifdef __TIZEN__
+#include <dlfcn.h> /* for dlopen */
+#else
 #include <vorbis/vorbisenc.h>
 #endif
 
@@ -129,6 +133,11 @@ typedef struct
 
 	/* Encoding quality in range [0.0, 1.0]. */
 	double quality ;
+
+#ifdef __TIZEN__
+	/* func ptr for encoder */
+	void *dl;
+#endif
 } VORBIS_PRIVATE ;
 
 static int
@@ -340,6 +349,41 @@ vorbis_read_header (SF_PRIVATE *psf, int log_data)
 	return 0 ;
 } /* vorbis_read_header */
 
+
+#ifdef __TIZEN__
+#define VORBIS_ENC_SO_NAME "/usr/lib/libvorbisenc.so.2" /* FIXME : Any good way to avoid hardcoding? */
+#define VORBIS_ENC_INIT_VBR "vorbis_encode_init_vbr"
+
+static int
+_vorbis_encode_init(SF_PRIVATE *psf)
+{
+	int (*fn) (vorbis_info *, long, long, float);
+	void *dl = NULL;
+	VORBIS_PRIVATE *vdata = (VORBIS_PRIVATE *) psf->codec_data ;
+
+	/* load so */
+	dl = dlopen(VORBIS_ENC_SO_NAME, RTLD_GLOBAL | RTLD_NOW);
+	if (!dl) {
+		psf_log_printf (psf, "failed to dlopen [%s], error [%s]\n", VORBIS_ENC_SO_NAME, dlerror());
+		return -1;
+	}
+	dlerror();
+
+	vdata->dl = dl;
+
+	/* load symbol */
+	fn = dlsym(dl, VORBIS_ENC_INIT_VBR);
+	if (!fn) {
+		psf_log_printf (psf, "failed to dlsym [%s], error [%s]\n", VORBIS_ENC_INIT_VBR, dlerror());
+		return -1;
+	}
+	dlerror();
+
+	/* call function */
+	return fn(&vdata->vinfo, psf->sf.channels, psf->sf.samplerate, vdata->quality);
+}
+#endif /* __TIZEN__ */
+
 static int
 vorbis_write_header (SF_PRIVATE *psf, int UNUSED (calc_length))
 {
@@ -350,7 +394,9 @@ vorbis_write_header (SF_PRIVATE *psf, int UNUSED (calc_length))
 	vorbis_info_init (&vdata->vinfo) ;
 
 	/* The style of encoding should be selectable here, VBR quality mode. */
-#if ENABLE_VORBIS_ENC
+#ifdef __TIZEN__
+	ret = _vorbis_encode_init(psf);
+#else
 	ret = vorbis_encode_init_vbr (&vdata->vinfo, psf->sf.channels, psf->sf.samplerate, vdata->quality) ;
 #endif
 
@@ -486,6 +532,13 @@ vorbis_close (SF_PRIVATE *psf)
 	vorbis_dsp_clear (&vdata->vdsp) ;
 	vorbis_comment_clear (&vdata->vcomment) ;
 	vorbis_info_clear (&vdata->vinfo) ;
+
+#ifdef __TIZEN__
+	if (vdata->dl) {
+		dlclose(vdata->dl);
+		vdata->dl = NULL;
+	}
+#endif
 
 	return 0 ;
 } /* vorbis_close */
