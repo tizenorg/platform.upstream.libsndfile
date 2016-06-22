@@ -2929,10 +2929,6 @@ psf_open_file (SF_PRIVATE *psf, SF_INFO *sfinfo)
 				error = flac_open (psf) ;
 				break ;
 
-		case	SF_FORMAT_CAF :
-				error = caf_open (psf) ;
-				break ;
-
 		case	SF_FORMAT_MPC2K :
 				error = mpc2k_open (psf) ;
 				break ;

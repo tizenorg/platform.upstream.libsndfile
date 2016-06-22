@@ -856,7 +856,6 @@ int		w64_open	(SF_PRIVATE *psf) ;
 int		wav_open	(SF_PRIVATE *psf) ;
 int		xi_open		(SF_PRIVATE *psf) ;
 int		flac_open	(SF_PRIVATE *psf) ;
-int		caf_open	(SF_PRIVATE *psf) ;
 int		mpc2k_open	(SF_PRIVATE *psf) ;
 int		rf64_open	(SF_PRIVATE *psf) ;
 
@@ -891,7 +890,6 @@ int		gsm610_init		(SF_PRIVATE *psf) ;
 int		vox_adpcm_init	(SF_PRIVATE *psf) ;
 int		flac_init		(SF_PRIVATE *psf) ;
 int		g72x_init 		(SF_PRIVATE * psf) ;
-int		alac_init		(SF_PRIVATE *psf, const ALAC_DECODER_INFO * info) ;
 
 int 	dither_init		(SF_PRIVATE *psf, int mode) ;
 
@@ -982,7 +980,6 @@ typedef struct
 int audio_detect (SF_PRIVATE * psf, AUDIO_DETECT *ad, const unsigned char * data, int datalen) ;
 int id3_skip (SF_PRIVATE * psf) ;
 
-void	alac_get_desc_chunk_items (int subformat, uint32_t *fmt_flags, uint32_t *frames_per_packet) ;
 
 FILE *	psf_open_tmpfile (char * fname, size_t fnamelen) ;
 

@@ -8,7 +8,7 @@ lib_LTLIBRARIES = libsndfile.la
 include_HEADERS = sndfile.hh
 nodist_include_HEADERS = sndfile.h
 
-noinst_LTLIBRARIES =  GSM610/libgsm.la G72x/libg72x.la ALAC/libalac.la libcommon.la
+noinst_LTLIBRARIES =  GSM610/libgsm.la G72x/libg72x.la libcommon.la
 
 SYMBOL_FILES = Symbols.gnu-binutils Symbols.darwin libsndfile-1.def Symbols.os2 Symbols.static
 
@@ -25,10 +25,10 @@ check_PROGRAMS = test_main G72x/g72x_test
 COMMON = common.c file_io.c command.c pcm.c ulaw.c alaw.c float32.c \
 		double64.c ima_adpcm.c ms_adpcm.c gsm610.c dwvw.c vox_adpcm.c \
 		interleave.c strings.c dither.c cart.c broadcast.c audio_detect.c \
- 		ima_oki_adpcm.c ima_oki_adpcm.h alac.c chunk.c ogg.c chanmap.c \
+		ima_oki_adpcm.c ima_oki_adpcm.h chunk.c ogg.c chanmap.c \
 		windows.c id3.c $(WIN_VERSION_FILE)
 
-FILESPECIFIC = sndfile.c aiff.c au.c avr.c caf.c dwd.c flac.c g72x.c htk.c ircam.c \
+FILESPECIFIC = sndfile.c aiff.c au.c avr.c dwd.c flac.c g72x.c htk.c ircam.c \
 		macbinary3.c macos.c mat4.c mat5.c nist.c paf.c pvf.c raw.c rx2.c sd2.c \
 		sds.c svx.c txw.c voc.c wve.c w64.c wav_w64.c wav.c xi.c mpc2k.c rf64.c \
 		ogg_vorbis.c ogg_speex.c ogg_pcm.c ogg_opus.c
@@ -46,7 +46,7 @@ endif
 libsndfile_la_LDFLAGS = -no-undefined -version-info  $(SHARED_VERSION_INFO) $(SHLIB_VERSION_ARG)
 libsndfile_la_SOURCES = $(FILESPECIFIC) $(noinst_HEADERS)
 nodist_libsndfile_la_SOURCES = $(nodist_include_HEADERS)
-libsndfile_la_LIBADD = GSM610/libgsm.la G72x/libg72x.la ALAC/libalac.la \
+libsndfile_la_LIBADD = GSM610/libgsm.la G72x/libg72x.la \
 		libcommon.la $(EXTERNAL_LIBS) -lm
 
 libcommon_la_SOURCES = $(COMMON)
@@ -62,13 +62,6 @@ GSM610_libgsm_la_SOURCES = GSM610/config.h GSM610/gsm.h GSM610/gsm610_priv.h \
 
 G72x_libg72x_la_SOURCES = G72x/g72x.h G72x/g72x_priv.h \
 		G72x/g721.c G72x/g723_16.c G72x/g723_24.c G72x/g723_40.c G72x/g72x.c
-
-ALAC_libalac_la_SOURCES = ALAC/ALACAudioTypes.h ALAC/ALACBitUtilities.h \
-		ALAC/EndianPortable.h ALAC/aglib.h ALAC/dplib.h ALAC/matrixlib.h \
-		ALAC/alac_codec.h ALAC/shift.h \
-		ALAC/ALACBitUtilities.c ALAC/ag_dec.c \
-		ALAC/ag_enc.c ALAC/dp_dec.c ALAC/dp_enc.c ALAC/matrix_dec.c \
-		ALAC/matrix_enc.c ALAC/alac_decoder.c ALAC/alac_encoder.c
 
 #===============================================================================
 # Test programs.
